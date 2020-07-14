@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html>
+<style>
+.Chartbutton{
+padding:10px;
+border:1px solid black;
+left:10px;
+margin-bottom:10px;
+cursor:pointer;
+}
+</style>
+
+<title> Wound Detection & Analysis </title>
+
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" type="text/css" href="lib/styles/ImageSlider.css">
+
+<script  src="lib/js/jquery.js" type="text/javascript"></script>
+<script  src="lib/js/ImageSlider.js" type="text/javascript"></script>
+<script  src="lib/js/d3.v5.min.js" type="text/javascript"></script>
+  <script src="lib/js/tooltip.js"  type="text/javascript"></script>
+
+<style>
+  br {
+    line-height: 2px;
+ }
+
+.color_outer{
+position:relative;
+float:left;
+width:30%;
+font-size:10px
+}
+
+.color_Legend{
+border:1px solid black;
+width:20px;
+height:20px;
+position:relative;
+display:inline-block;
+font-size:10px;
+}
+
+</style>
+
+<div style='display:none'>
+<p id="status" style='display:none'>OpenCV.js is loading...</p>
+<div class="spinner" id='spinner' style='display:none'></div>
+    <div class="emscripten" id="status"  style='display:none'>Downloading...</div>
+    <div class="emscripten"  style='display:none'>
+      <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+</div>
+
+
+<body>
+
+<div id='LoginBody'>
+
+Passcode: <input id='login_pass'></input>
+<div id='login_button' style='padding:5px;background:#003399;color:white; border:1px solid #003399;cursor:pointer;width:50px'> Login</div>
+
+<script>
+$("#login_button").click(function(){
+
+k = $("#login_pass").val()
+if(k == "SoT")
+{
+document.getElementById("mainbody").style.display = "block";
+document.getElementById("LoginBody").style.display = "none";
+}
+else{
+alert("In correct Login Credentials")
+}
+
+})
+</script>
+
+</div>
+
+<div id='mainbody' style="display:none">
+	
+
+
+<div style='width:1600px;left:40px;position:relative'>
+
+	<div id="slider">
+	   <div style='position:relative;width:3%;float:left'><button class="prew fa fa-chevron-left" onclick="prewImage()"></button></div>
+	   <div style='position:relative;width:88%;float:left;margin-left:5%;' id="box"></div>
+	   <div style='position:relative;width:2%;float:left'><button class="next fa fa-chevron-right" onclick="nextImage()"></button></div>
+	</div>
+	
+	<input  style="position:relative" type="file" id="fileInput" name="file" />
+	
+	
+	
+	<div style="position:relative;border:1px solid black;height:500px;width:100%;">
+	<div style='font-size: 23px;text-align: center;background-color: #ffe4c4;'>Wound Predicted </div>
+	<br><br>
+	
+		<div style='left:25px;width:375px; position:relative;float:left'><canvas  id="canvas1"   ></canvas></div>
+		<div style='left:25px;width:375px;position:relative;float:left'>
+			<canvas  id="canvas3"  > </canvas> 
+			<div id="bar" style="position:relative;"></div> 
+		</div>
+		
+		<div style='lposition:relative;float:left;font-size:20px;width:300px'>
+		
+		Width * Height (in Cm) :<span id="WidthHeight"></span><br>
+		<span style="display:none">Area (in CmSq): <span id="AreaValuecm"></span><br></span>
+		
+		<span style="display:none">Perimeter Contor (in Cm): <span id="PerimeterValuecm"></span><br></span>
+		
+		
+		Area (in pixels): <span id="AreaValue"></span><br>
+		<span style="display:none">Area Contor (in pixels): <span id="AreaContor"></span><br></span>
+		<span style="display:none">Perimeter Contor (in pixels): <span id="PerimeterValue"></span><br></span>
+		<br>
+		1 pixel = 0.0264583333 cms <br>
+		1 pixel = 0.0264583333*0.0264583333 cm2
+		</div>
+		
+		
+		<div style="position:relative;float:left;font-size:20px;">
+		<b style='position:relative;left:150px;top:-25px'>Color Distribution of Pixels</b>
+		<div   id="ColorBubble"></div>
+		</div>
+		
+		
+		
+		
+	
+	</div>
+	
+		
+	
+	
+
+	
+	
+	<div style="position:relative;border:1px solid black;top:10px;clear:both;height:500px;width:1400px;">
+	
+	
+	<div style='font-size: 23px;text-align: center;background-color: #ffe4c4;'>Analysis of Wound Predicted 	</div>
+	<br><br>
+	
+	 <div style='left:25px;width:375px; position:relative;float:left'> <canvas  id="canvas2"  ></canvas> </div>
+     <div style='left:25px;width:375px; position:relative;float:left'> <canvas  id="canvas_wpc_temp"  ></canvas> </div>
+		  
+	<div style='left:50px;position:relative;float:left;width:560px'>
+	
+	<div class="color_outer"><div class='color_Legend' style='left:30px;background-color:rgb(0,255,0)'>  </div> <span style='position:relative; top:-5px;left:30px'> Wound Predicted </span> </div> 
+	<div class="color_outer"> <div class='color_Legend' style='background-color:rgb(255,0,0)'>  </div> <span style='position:relative; top:-5px'>Wound not Predicted </span> </div>
+	<div class="color_outer"> <div class='color_Legend' style='background-color:rgb(255,255,0)'>  </div> <span style='position:relative; top:-5px'>Background predicted as wound </span> </div>
+	
+	
+	<canvas  id="canvas_wpc"  ></canvas>
+		
+			
+		<div style='position:relative;left:100px;'>
+		
+		
+	%WoundPixels predicted as Wound: <span id="Per_wp"></span>% <br>
+	%WoundPixels not predicted Wound: <span id="Per_wnp"></span>% <br>
+	%Background predicted as Wound: <span id="Per_bpw"></span>% <br>
+	%Right prediction:<span id="Per_rp"></span>% <br>
+		</div>
+		
+		</div>
+	
+
+	
+
+	</div>
+	
+	
+	
+	<div style="position:relative;border:1px solid black;top:30px;clear:both;height:350px;width:1400px;">
+	
+	
+	<div style='font-size: 23px;text-align: center;background-color: #ffe4c4;'>Approach to Wound Digitization 
+	
+	</div>
+	
+	<div style='left:25px;width:375px; position:relative;float:left'><canvas  id="maskRCNN"   ></canvas></div>
+	<div style='left:25px;width:375px; position:relative;float:left;top:20px'><canvas  id="Depth"   ></canvas></div>
+	<div style='left:25px;width:375px; position:relative;float:left;top:20px'><canvas  id="Point_Cloud"   ></canvas></div>
+	
+	<div style="position:relative;top:20px">
+	min depth: <span style='position:relative;left:5px' id='mind'></span> <br>
+	max depth:<span style='position:relative;left:5px' id='maxd'></span><br>
+	Depth:<span style='position:relative;left:5px' id='rd'></span>
+	</div>
+	
+	</div>	
+	
+	
+	<div>
+	
+
+	
+	<iframe src="http://app.poppic.cam/p/S3wPQzSUgV2ypMZ" title="W3Schools Free Online Web Tutorials"></iframe>
+	</div>
+		 
+	</div>
+		
+	
+	
+	
+		<div style='clear:both; display:none '>
+		
+		
+		   <canvas  id="canvas_trans1"  ></canvas>
+		    <canvas  id="canvas_trans2"  ></canvas>
+		  
+</div>
+
+
+
+
+<script src='lib/js/dat.gui.js'></script>
+<script async src="lib/js/cv.js"></script>
+
+<script type="text/javascript">
+
+function getColorHist(src, mask,src2)
+{
+console.log("InColorHist")
+	src3= cv.matFromImageData( getInput_changedImg(), 24);
+	TP = 0
+	TN = 0
+	FP = 0
+	FN = 0
+	PlotPoints = []
+	PlotPoints_Org =[]
+	window.TTLPIXEL = src.rows * src.cols
+	
+    for(row = 0; row< src.rows; row++)
+	{
+	  for(col = 0; col<src.cols; col++)
+	  {
+	  TV = mask.data[row * mask.cols * mask.channels() + col * mask.channels()];
+	    
+		let R_s3 = src3.data[row * src3.cols * src3.channels() + col * src3.channels()];
+		let G_s3 = src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 1];
+		let B_s3 = src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 2];
+		isS3255 = R_s3==255 &&  G_s3==255 && B_s3==255
+	  if(TV==255)
+	  {
+	  
+	  
+
+
+
+	    let H = src.data[row * src.cols * src.channels() + col * src.channels()];
+		let S = src.data[row * src.cols * src.channels() + col * src.channels() + 1];
+		let V = src.data[row * src.cols * src.channels() + col * src.channels() + 2];
+		
+		let R = src2.data[row * src.cols * src.channels() + col * src.channels()];
+		let G = src2.data[row * src.cols * src.channels() + col * src.channels() + 1];
+		let B = src2.data[row * src.cols * src.channels() + col * src.channels() + 2];
+		
+	
+	mask_val = 'Red'
+if( S>=240){
+mask_val = 'Black'
+}
+if( S<=40){
+mask_val = 'White'
+}
+if( H>=0 && H<=30 && S>=40 && V>=160 && S<=60 && V<=210){
+mask_val = 'White'
+}
+
+if( H>=0 && H<=6 && S>=120 && V>=100 && S<=255 && V<=209){
+mask_val = 'Pinkish Red'
+}
+
+
+
+		if(isS3255){
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels()] = 255
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 2] =0
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 1] = 255
+		FP = FP + 1
+		}
+		if(!isS3255){
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels()] = 0
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 2] =0
+		src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 1] = 255
+		TP = TP + 1
+	  }
+	  
+	  
+	  
+		
+		
+		PlotPoints.push({"H":H, "S": S,"V":V ,"R":R,"G":G,"B":B,"mask_val":mask_val});
+	}
+	else if(!isS3255){
+	src3.data[row * src3.cols * src3.channels() + col * src3.channels()] = 255
+	src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 2] =0
+    src3.data[row * src3.cols * src3.channels() + col * src3.channels() + 1] = 0
+	TN = TN + 1
+	}
+	else if(isS3255){
+	FN = FN+1
+	}
+	
+	  }
+	}
+	PlotPoints_Org = PlotPoints
+	
+	 for( i = 0; i < PlotPoints.length ; i ++){
+		   PlotPoints[i].S_Agg = Math.round(PlotPoints[i].S/100,0)*100
+		   PlotPoints[i].V_Agg   = Math.round(PlotPoints[i].V/100,0)*100  
+		   PlotPoints[i].H_Agg   = PlotPoints[i].H
+			 }
+	PlotPoints = d3.nest().key(function(d){ return d.mask_val}).key(function(d) { return d.H_Agg; }).key(function(d) { return d.S_Agg; })
+	.key(function(d) { return d.V_Agg; }).rollup(function(v) {return {  R:Math.round(d3.mean(v,function(d){return d.R})) , 
+	G:Math.round(d3.mean(v,function(d){return d.G})) ,  B:Math.round(d3.mean(v,function(d){return d.B}),0) , size: d3.sum(v, function(d) { return 1; })}}).entries(PlotPoints)
+	PlotPoints_Agg = []
+	
+	for(var i=0; i<PlotPoints.length; i++) {
+			for(var j=0; j<PlotPoints[i].values.length;j++){
+				  for(var k=0; k<PlotPoints[i].values[j].values.length;k++){
+				  for(var l=0; l<PlotPoints[i].values[j].values[k].values.length;l++){
+				  PlotPoints_Agg.push({'mask_val':PlotPoints[i].key,'H': PlotPoints[i].values[j].key, 'S': PlotPoints[i].values[j].values[k].key , 'V': PlotPoints[i].values[j].values[k].values[l].key , 'Value': PlotPoints[i].values[j].values[k].values[l].value.size , 'R': PlotPoints[i].values[j].values[k].values[l].value.R, 'G': PlotPoints[i].values[j].values[k].values[l].value.G, 'B': PlotPoints[i].values[j].values[k].values[l].value.B})
+				 } }}}
+	  
+	  
+	$("#Per_wp").html(Math.round(TP*100/(TP+TN),2))
+	$("#Per_wnp").html(Math.round(TN*100/(TP+TN),2))
+	$("#Per_bpw").html(Math.round(FP*100/(FP+FN),2))
+	$("#Per_rp").html(Math.round((TP+FN)*100/(TP+TN+FP+FN),2))
+	
+	
+    cv.imshow('canvas_wpc', src3); 
+	
+	
+	PlotPoints_Agg2 = d3.nest().key(function(d){ return d.mask_val}).rollup(function(v) {return {   size: d3.sum(v, function(d) { return 1; })}}).entries(PlotPoints_Org)
+	PlotPoints_Agg2_f = []
+	TTL_Size = 0
+	for(var i=0; i<PlotPoints_Agg2.length; i++) {
+			TTL_Size = TTL_Size +  PlotPoints_Agg2[i].value.size
+				  PlotPoints_Agg2_f.push({'mask_val':PlotPoints_Agg2[i].key,'Value': PlotPoints_Agg2[i].value.size })
+				 }
+	
+
+
+	myBubbleChart('#ColorBubble', PlotPoints_Agg, TTL_Size,PlotPoints_Agg2_f )
+	
+	
+	
+}
+
+function translateimage(){
+
+let src = cv.imread('canvas1');
+let dst = new cv.Mat();
+let dst2 = new cv.Mat();
+let M = cv.matFromArray(2, 3, cv.CV_64FC1, [1, 0, -10, 0, 1, 0]);
+let M2 = cv.matFromArray(2, 3, cv.CV_64FC1, [1, 0, 1, 0, 1, 10]);
+
+// You can try more different parameters
+
+var scaleFactor=Math.min((canvasWidth/src.cols),(canvasHeight/src.rows))
+cw = src.cols*scaleFactor ;ch = src.rows*scaleFactor ;
+
+let dsize = new cv.Size(cw, ch);
+
+cv.warpAffine(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+cv.warpAffine(src, dst2, M2, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+
+cv.imshow('canvas_trans1', dst);
+cv.imshow('canvas_trans2', dst2);
+
+src.delete(); dst.delete(); M.delete();
+
+}
+
+
+NoImages = 58
+var canvasWidth = 300 ;
+var canvasHeight = 300 ;
+IMAGE_SOURCE = ""
+
+var Control =  {
+		blurThreshold:  100 ,
+		blurSize : 1 ,
+		canny_threshold:  75  ,
+		erosion_size : 1 
+	};
+	
+var image_set_Index = 0;
+var image = Array.from(Array(NoImages).keys()).map(i => 'Images/I' + (i)+".jpg");
+var slider_content = document.getElementById('box');
+
+function findContours() {
+
+
+	var src = cv.matFromImageData(getInput2(), 0);
+	let dst = cv.matFromImageData(getInput(), 0);
+cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+cv.threshold(src, src, 120, 200, cv.THRESH_BINARY);
+let contours = new cv.MatVector();
+let hierarchy = new cv.Mat();
+// You can try more different parameters
+cv.findContours(src, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+// draw contours with random Scalar
+Area_agg = 0
+Peri_agg = 0
+
+
+
+for (let i = 0; i < contours.size(); ++i) {
+    let color = new cv.Scalar(255,0,0);
+	let color2 = new cv.Scalar(255,255,0);
+	Area_agg = Area_agg +  cv.contourArea(contours.get(i),false)
+	Peri_agg = Peri_agg +  cv.arcLength(contours.get(i), true);
+	if(cv.contourArea(contours.get(i),false) > 200){
+
+       cv.drawContours(dst, contours, i, color, 1, cv.LINE_8, hierarchy, 100);
+	  
+	}
+}
+
+
+
+cv.imshow('canvas3', dst);
+
+wh = ""; ah = "";
+var canvas = document.getElementById('canvas3');
+ctx = canvas.getContext("2d");
+ctx.beginPath();
+ctx.font = "10px Arial";
+areaiter = 0
+for (let i = 0; i < contours.size(); ++i) {
+    let color = new cv.Scalar(255,0,0);
+	let color2 = new cv.Scalar(255,255,0);
+	Area_agg = Area_agg +  cv.contourArea(contours.get(i),false)
+	Peri_agg = Peri_agg +  cv.arcLength(contours.get(i), true);
+	if(cv.contourArea(contours.get(i),false) > 600){
+	let boundRect = cv.boundingRect( contours.get(i) );
+	ctx.rect(boundRect.x, boundRect.y, boundRect.width, boundRect.height);
+	
+	w =  Math.round(boundRect.width *0.0264583333,1)
+	h =  Math.round(boundRect.height *0.0264583333,1)
+	
+	wh =wh + "<div>Area"+areaiter+"  "+w+"*"+h + "       ("+  Math.round(cv.contourArea(contours.get(i),false) *0.0264583333*0.0264583333,0) + ")</div>"
+	
+	ctx.fillText("Area"+areaiter, boundRect.x , boundRect.y+boundRect.height+10);
+	areaiter = areaiter + 1
+	  
+	}
+	
+	
+}
+
+$("#WidthHeight").html(wh)
+
+$("#AreaContorcm").html(ah)
+//$("#PerimeterValue").html(Math.round(Peri_agg,0))
+//$("#AreaContorcm").html(Math.round(Area_agg*0.0264583333*.02,0))
+//$("#PerimeterValuecm").html(Math.round(Peri_agg*0.0264583333,0))
+
+
+ctx.stroke();
+	
+	
+src.delete(); dst.delete(); contours.delete(); hierarchy.delete();
+
+		
+	}
+
+
+function ProcessImage(){
+
+
+let src = makeHSV() 
+let srcH = getHorixontalshift()
+let srcH2 = getHorixontalshift()
+
+
+
+
+
+//colonies red, white
+let mask_1a_lower = [0,0,100,0];
+let mask_1a_higher = [6,255,209,0];
+let mask_4_lower = [0,40,160,0];
+let mask_4_higher = [30,60,210,0];
+
+//Red color
+let mask_1_lower = [0,120,100,0];
+let mask_1_higher = [6,255,209,0];
+
+let mask_2_lower = [167,10,40,0];
+let mask_2_higher = [172,180,209,0];
+
+let mask_3_lower = [173,120,40,0];
+let mask_3_higher = [180,255,209,0];
+
+
+
+let mask1 = new cv.Mat();
+let mask1a = new cv.Mat();
+let mask2 = new cv.Mat();
+let mask3 = new cv.Mat();
+
+let mask1H = new cv.Mat();
+let mask2H = new cv.Mat();
+let mask3H = new cv.Mat();
+
+let mask1H2 = new cv.Mat();
+let mask2H2 = new cv.Mat();
+let mask3H2 = new cv.Mat();
+
+let mask4 = new cv.Mat();
+let m = new  cv.Mat();
+let mask_final = new cv.Mat();
+let mask4H_t = new cv.Mat();
+
+let low = new cv.Mat(src.rows, src.cols, src.type(), mask_1_lower);
+let high = new cv.Mat(src.rows, src.cols, src.type(), mask_1_higher);
+cv.inRange(src, low, high, mask1);
+
+low = new cv.Mat(src.rows, src.cols, src.type(), mask_1a_lower);
+high = new cv.Mat(src.rows, src.cols, src.type(), mask_1a_higher);
+cv.inRange(src, low, high, mask1a);
+
+low = new cv.Mat(src.rows, src.cols, src.type(), mask_2_lower);
+high = new cv.Mat(src.rows, src.cols, src.type(), mask_2_higher);
+cv.inRange(src, low, high, mask2);
+
+
+low = new cv.Mat(src.rows, src.cols, src.type(), mask_3_lower);
+high = new cv.Mat(src.rows, src.cols, src.type(), mask_3_higher);
+cv.inRange(src, low, high, mask3);
+
+
+
+low = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_1_lower);
+high = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_1_higher);
+cv.inRange(srcH, low, high, mask1H);
+
+low = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_2_lower);
+high = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_2_higher);
+cv.inRange(srcH, low, high, mask2H);
+
+low = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_3_lower);
+high = new cv.Mat(srcH.rows, srcH.cols, srcH.type(), mask_3_higher);
+cv.inRange(srcH, low, high, mask3H);
+
+
+
+low = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_1_lower);
+high = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_1_higher);
+cv.inRange(srcH2, low, high, mask1H2);
+
+low = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_2_lower);
+high = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_2_higher);
+cv.inRange(srcH2, low, high, mask2H2);
+
+low = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_3_lower);
+high = new cv.Mat(srcH2.rows, srcH2.cols, srcH2.type(), mask_3_higher);
+cv.inRange(srcH2, low, high, mask3H2);
+
+
+
+
+low = new cv.Mat(src.rows, src.cols, src.type(), mask_4_lower);
+high = new cv.Mat(src.rows, src.cols, src.type(), mask_4_higher);
+cv.inRange(src, low, high, mask4);
+
+
+
+cv.bitwise_and(mask4, mask3H, mask3H,m);
+cv.bitwise_and(mask4, mask2H, mask2H,m);
+cv.bitwise_and(mask4, mask1H, mask1H,m);
+
+
+
+let dst = new cv.Mat();
+let mask = new cv.Mat();
+let dtype = -1;
+
+
+
+cv.add(mask1, mask2, mask_final, mask, dtype);
+cv.add(mask_final, mask3, mask_final, mask, dtype);
+cv.add(mask_final, mask1a, mask_final, mask, dtype);
+
+
+
+
+if((cv.countNonZero((mask2H)) + cv.countNonZero((mask1H)) + cv.countNonZero((mask3H)) > 10000) || ( cv.countNonZero((mask2H2)) + cv.countNonZero((mask1H2)) + cv.countNonZero((mask3H2)) > 10000 ) )
+{
+cv.add(mask_final,mask4,mask_final,mask,dtype);
+}
+
+
+
+cv.imshow('canvas2', mask_final);
+
+$("#AreaValue").html(cv.countNonZero(mask_final))
+$("#AreaValuecm").html(Math.round(cv.countNonZero(mask_final)*0.0264583333*.02))
+src2=makeRGB()
+setTimeout(getColorHist(src, mask_final,src2),10000)
+src2.delete();
+src.delete(); mask1.delete(); mask2.delete();mask3.delete();mask_final.delete(); low.delete(); high.delete(); 
+
+
+
+
+}
+
+function init() {
+ 
+  content = ""
+		for(k=1;k<13;k++)
+		{
+		if((image_set_Index*13)+k < image.length){content  = content + "<img class='Slider_Images' src="+image[(image_set_Index*13)+k]+">";}
+		else{image_set_Index=-1;break;}
+		}
+		image_set_Index = image_set_Index + 1
+		slider_content.innerHTML = content
+}
+
+init()
+let inputElement = document.getElementById('fileInput');
+inputElement.addEventListener('change', (e) => {
+  Analyze_Image(URL.createObjectURL(e.target.files[0]));
+}, false);
+
+
+
+$(document).on("click" , "#box img" , function() 
+{Analyze_Image($(this).attr("src"))});
+
+
+function Analyze_Image(src)
+{
+IMAGE_SOURCE = src
+var canvas = document.getElementById('canvas1');
+var canvas2 = document.getElementById('canvas_wpc'); 
+
+
+
+var ctx = canvas.getContext('2d');
+var img = new Image();
+img.onload = function() {var scaleFactor=Math.min((canvasWidth/img.width),(canvasHeight/img.height));
+canvas.width = img.width*scaleFactor ;canvas.height = img.height*scaleFactor ;ctx.drawImage(img,0,0,img.width*scaleFactor,img.height*scaleFactor);}
+img.src = src;
+
+
+
+displayChangedImg(src.replace(".jpg", "_Change.jpg").replace("Images","Changed_Images"));
+
+createResults(src)
+
+setTimeout(translateimage,500)
+setTimeout(ProcessImage,800);
+setTimeout(findContours,1000)
+
+}
+
+
+function createResults(src)
+{
+
+	
+var canvas = document.getElementById('maskRCNN');
+var canvas2 = document.getElementById('Depth'); 
+var canvas3 = document.getElementById('Point_Cloud'); 
+
+var ctx = canvas.getContext('2d');
+var img = new Image();
+img.onload = function() {var scaleFactor=Math.min((canvasWidth/img.width),(canvasHeight/img.height));
+canvas.width = img.width*scaleFactor ;canvas.height = img.height*scaleFactor ;ctx.drawImage(img,0,0,img.width*scaleFactor,img.height*scaleFactor);}
+img.src = src.replace("Images","MaskRCNN_Res").replace(".jpg",".png");
+
+var ctx2 = canvas2.getContext('2d');
+var img2 = new Image();
+img2.onload = function() {var scaleFactor=Math.min((canvasWidth/img2.width),(canvasHeight/img2.height));
+canvas2.width = img2.width*scaleFactor ;canvas2.height = img2.height*scaleFactor ;ctx2.drawImage(img2,0,0,img2.width*scaleFactor,img2.height*scaleFactor);}
+
+img2.src = src.replace("Images","Mono").replace(".jpg","_Change_disp.jpeg");
+if (img2.src.includes('Mono/I10_Change_disp.jpeg')){$('#maxd').html('1.9306084'); min=$('#mind').html('0.12133578');$('#rd').html('1.8092726') }
+if (img2.src.includes('Mono/I11_Change_disp.jpeg')){$('#maxd').html('1.8316762'); min=$('#mind').html('0.16742992');$('#rd').html('1.6642463') }
+if (img2.src.includes('Mono/I12_Change_disp.jpeg')){$('#maxd').html('1.7636039'); min=$('#mind').html('0.15795638');$('#rd').html('1.6056476') }
+if (img2.src.includes('Mono/I13_Change_disp.jpeg')){$('#maxd').html('1.780731'); min=$('#mind').html('0.1814275');$('#rd').html('1.5993035') }
+if (img2.src.includes('Mono/I14_Change_disp.jpeg')){$('#maxd').html('1.6736349'); min=$('#mind').html('0.13447492');$('#rd').html('1.53916') }
+if (img2.src.includes('Mono/I15_Change_disp.jpeg')){$('#maxd').html('1.7831118'); min=$('#mind').html('0.20726816');$('#rd').html('1.5758437') }
+if (img2.src.includes('Mono/I16_Change_disp.jpeg')){$('#maxd').html('1.679692'); min=$('#mind').html('0.16292061');$('#rd').html('1.5167714') }
+if (img2.src.includes('Mono/I17_Change_disp.jpeg')){$('#maxd').html('1.815964'); min=$('#mind').html('0.20328963');$('#rd').html('1.6126744') }
+if (img2.src.includes('Mono/I18_Change_disp.jpeg')){$('#maxd').html('1.8478011'); min=$('#mind').html('0.23684487');$('#rd').html('1.6109562') }
+if (img2.src.includes('Mono/I19_Change_disp.jpeg')){$('#maxd').html('1.8230426'); min=$('#mind').html('0.13536844');$('#rd').html('1.6876742') }
+if (img2.src.includes('Mono/I1_Change_disp.jpeg')){$('#maxd').html('1.8022857'); min=$('#mind').html('0.17796431');$('#rd').html('1.6243213') }
+if (img2.src.includes('Mono/I20_Change_disp.jpeg')){$('#maxd').html('1.635383'); min=$('#mind').html('0.14654027');$('#rd').html('1.4888427') }
+if (img2.src.includes('Mono/I21_Change_disp.jpeg')){$('#maxd').html('1.828926'); min=$('#mind').html('0.15735212');$('#rd').html('1.6715739') }
+if (img2.src.includes('Mono/I22_Change_disp.jpeg')){$('#maxd').html('1.828926'); min=$('#mind').html('0.17148723');$('#rd').html('1.6574388') }
+if (img2.src.includes('Mono/I23_Change_disp.jpeg')){$('#maxd').html('1.8161826'); min=$('#mind').html('0.3204096');$('#rd').html('1.4957731') }
+if (img2.src.includes('Mono/I24_Change_disp.jpeg')){$('#maxd').html('2.0939703'); min=$('#mind').html('0.22050272');$('#rd').html('1.8734676') }
+if (img2.src.includes('Mono/I25_Change_disp.jpeg')){$('#maxd').html('1.8110113'); min=$('#mind').html('0.13069372');$('#rd').html('1.6803176') }
+if (img2.src.includes('Mono/I26_Change_disp.jpeg')){$('#maxd').html('1.7135638'); min=$('#mind').html('0.13601865');$('#rd').html('1.5775452') }
+if (img2.src.includes('Mono/I27_Change_disp.jpeg')){$('#maxd').html('1.9368613'); min=$('#mind').html('0.057008766');$('#rd').html('1.8798525') }
+if (img2.src.includes('Mono/I28_Change_disp.jpeg')){$('#maxd').html('2.299177'); min=$('#mind').html('0.19952226');$('#rd').html('2.0996547') }
+if (img2.src.includes('Mono/I29_Change_disp.jpeg')){$('#maxd').html('1.8070054'); min=$('#mind').html('0.104818456');$('#rd').html('1.702187') }
+if (img2.src.includes('Mono/I2_Change_disp.jpeg')){$('#maxd').html('1.8284298'); min=$('#mind').html('0.20072031');$('#rd').html('1.6277095') }
+if (img2.src.includes('Mono/I30_Change_disp.jpeg')){$('#maxd').html('1.785152'); min=$('#mind').html('0.14799921');$('#rd').html('1.6371528') }
+if (img2.src.includes('Mono/I31_Change_disp.jpeg')){$('#maxd').html('1.8097295'); min=$('#mind').html('0.09328215');$('#rd').html('1.7164474') }
+if (img2.src.includes('Mono/I32_Change_disp.jpeg')){$('#maxd').html('1.6388413'); min=$('#mind').html('0.15872757');$('#rd').html('1.4801137') }
+if (img2.src.includes('Mono/I33_Change_disp.jpeg')){$('#maxd').html('1.824276'); min=$('#mind').html('0.16894303');$('#rd').html('1.6553329') }
+if (img2.src.includes('Mono/I34_Change_disp.jpeg')){$('#maxd').html('1.4656101'); min=$('#mind').html('0.38624105');$('#rd').html('1.0793691') }
+if (img2.src.includes('Mono/I35_Change_disp.jpeg')){$('#maxd').html('1.4646868'); min=$('#mind').html('0.05594734');$('#rd').html('1.4087394') }
+if (img2.src.includes('Mono/I36_Change_disp.jpeg')){$('#maxd').html('1.828926'); min=$('#mind').html('0.16384399');$('#rd').html('1.665082') }
+if (img2.src.includes('Mono/I38_Change_disp.jpeg')){$('#maxd').html('2.0179672'); min=$('#mind').html('0.071768634');$('#rd').html('1.9461986') }
+if (img2.src.includes('Mono/I39_Change_disp.jpeg')){$('#maxd').html('1.8002944'); min=$('#mind').html('0.18986331');$('#rd').html('1.6104311') }
+if (img2.src.includes('Mono/I3_Change_disp.jpeg')){$('#maxd').html('1.7435025'); min=$('#mind').html('0.22752044');$('#rd').html('1.515982') }
+if (img2.src.includes('Mono/I41_Change_disp.jpeg')){$('#maxd').html('1.7236749'); min=$('#mind').html('0.13068792');$('#rd').html('1.592987') }
+if (img2.src.includes('Mono/I42_Change_disp.jpeg')){$('#maxd').html('1.6935301'); min=$('#mind').html('0.13920785');$('#rd').html('1.5543222') }
+if (img2.src.includes('Mono/I43_Change_disp.jpeg')){$('#maxd').html('1.8147978'); min=$('#mind').html('0.118859604');$('#rd').html('1.6959381') }
+if (img2.src.includes('Mono/I44_Change_disp.jpeg')){$('#maxd').html('1.6941483'); min=$('#mind').html('0.20239753');$('#rd').html('1.4917507') }
+if (img2.src.includes('Mono/I45_Change_disp.jpeg')){$('#maxd').html('1.8131387'); min=$('#mind').html('0.08937025');$('#rd').html('1.7237685') }
+if (img2.src.includes('Mono/I46_Change_disp.jpeg')){$('#maxd').html('1.5513226'); min=$('#mind').html('0.10114052');$('#rd').html('1.4501821') }
+if (img2.src.includes('Mono/I47_Change_disp.jpeg')){$('#maxd').html('1.8037384'); min=$('#mind').html('0.14805588');$('#rd').html('1.6556824') }
+if (img2.src.includes('Mono/I48_Change_disp.jpeg')){$('#maxd').html('1.8290119'); min=$('#mind').html('0.17861766');$('#rd').html('1.6503942') }
+if (img2.src.includes('Mono/I49_Change_disp.jpeg')){$('#maxd').html('1.8288975'); min=$('#mind').html('0.17380698');$('#rd').html('1.6550905') }
+if (img2.src.includes('Mono/I4_Change_disp.jpeg')){$('#maxd').html('1.8346074'); min=$('#mind').html('0.20726846');$('#rd').html('1.6273389') }
+if (img2.src.includes('Mono/I50_Change_disp.jpeg')){$('#maxd').html('1.8288863'); min=$('#mind').html('0.22450294');$('#rd').html('1.6043833') }
+if (img2.src.includes('Mono/I51_Change_disp.jpeg')){$('#maxd').html('1.816463'); min=$('#mind').html('0.24443582');$('#rd').html('1.5720272') }
+if (img2.src.includes('Mono/I52_Change_disp.jpeg')){$('#maxd').html('1.8287222'); min=$('#mind').html('0.40246278');$('#rd').html('1.4262595') }
+if (img2.src.includes('Mono/I53_Change_disp.jpeg')){$('#maxd').html('1.8282076'); min=$('#mind').html('0.13041475');$('#rd').html('1.6977929') }
+if (img2.src.includes('Mono/I54_Change_disp.jpeg')){$('#maxd').html('1.828926'); min=$('#mind').html('0.20108733');$('#rd').html('1.6278386') }
+if (img2.src.includes('Mono/I55_Change_disp.jpeg')){$('#maxd').html('1.8289294'); min=$('#mind').html('0.16806288');$('#rd').html('1.6608665') }
+if (img2.src.includes('Mono/I56_Change_disp.jpeg')){$('#maxd').html('1.8289263'); min=$('#mind').html('0.16696925');$('#rd').html('1.661957') }
+if (img2.src.includes('Mono/I57_Change_disp.jpeg')){$('#maxd').html('1.8146079'); min=$('#mind').html('0.19684392');$('#rd').html('1.617764') }
+if (img2.src.includes('Mono/I58_Change_disp.jpeg')){$('#maxd').html('1.8914504'); min=$('#mind').html('0.084304504');$('#rd').html('1.807146') }
+if (img2.src.includes('Mono/I5_Change_disp.jpeg')){$('#maxd').html('1.8302602'); min=$('#mind').html('0.25932103');$('#rd').html('1.5709391') }
+if (img2.src.includes('Mono/I6_Change_disp.jpeg')){$('#maxd').html('1.8113445'); min=$('#mind').html('0.117556155');$('#rd').html('1.6937883') }
+if (img2.src.includes('Mono/I7_Change_disp.jpeg')){$('#maxd').html('1.7585897'); min=$('#mind').html('0.18930149');$('#rd').html('1.5692883') }
+if (img2.src.includes('Mono/I8_Change_disp.jpeg')){$('#maxd').html('1.7758989'); min=$('#mind').html('0.15745641');$('#rd').html('1.6184425') }
+if (img2.src.includes('Mono/I9_Change_disp.jpeg')){$('#maxd').html('1.6919163'); min=$('#mind').html('0.18205479');$('#rd').html('1.5098616') }
+
+
+
+
+var ctx3 = canvas3.getContext('2d');
+var img3 = new Image();
+img3.onload = function() {var scaleFactor=Math.min((canvasWidth/img3.width),(canvasHeight/img3.height));
+canvas3.width = img3.width*scaleFactor ;canvas3.height = img3.height*scaleFactor ;ctx3.drawImage(img3,0,0,img3.width*scaleFactor,img3.height*scaleFactor);}
+
+img3.src = src.replace("Images","PC").replace(".jpg","_PC.png");
+
+
+
+
+}
+
+function displayChangedImg(src){
+
+
+var canvas = document.getElementById('canvas_wpc_temp'); 
+
+var ctx = canvas.getContext('2d');
+var img = new Image();
+img.onload = function() {var scaleFactor=Math.min((canvasWidth/img.width),(canvasHeight/img.height));
+canvas.width = img.width*scaleFactor ;canvas.height = img.height*scaleFactor ;ctx.drawImage(img,0,0,img.width*scaleFactor,img.height*scaleFactor);}
+img.src = src;
+
+}
+
+function getInput_changedImg() {
+		var canvas = document.getElementById('canvas_wpc_temp');
+		var ctx = canvas.getContext('2d');
+		var imgData = ctx.getImageData(0,0,canvas.width, canvas.height);
+		return imgData;
+	}
+	
+function getInput() {
+		var canvas = document.getElementById('canvas1');
+		var ctx = canvas.getContext('2d');
+		var imgData = ctx.getImageData(0,0,canvas.width, canvas.height);
+		return imgData;
+	}
+
+function getInput2() {
+		var canvas = document.getElementById('canvas2');
+		var ctx = canvas.getContext('2d');
+		var imgData = ctx.getImageData(0,0,canvas.width, canvas.height);
+	    
+		return imgData;
+	}
+
+function makeHSV() {
+		var src = cv.matFromImageData(getInput(), 24); // 24 for rgba
+
+		var tmp = new cv.Mat();
+		var res = new cv.Mat();
+		cv.cvtColor(src, tmp, cv.COLOR_RGBA2RGB, 0 )
+		cv.cvtColor(tmp, res, cv.COLOR_RGB2HSV, 0);
+		
+		tmp.delete();
+		src.delete();
+		return(res);
+	}
+	
+function getHorixontalshift()
+{
+	var canvas = document.getElementById('canvas_trans1');
+	var ctx = canvas.getContext('2d');
+	var imgData = ctx.getImageData(0,0,canvas.width, canvas.height);
+	var src = cv.matFromImageData(imgData, 24); // 24 for rgba
+		var tmp = new cv.Mat();
+		var res = new cv.Mat();
+		cv.cvtColor(src, tmp, cv.COLOR_RGBA2RGB, 0 )
+		cv.cvtColor(tmp, res, cv.COLOR_RGB2HSV, 0);
+		
+		tmp.delete();
+		src.delete();
+		
+	return(res)
+}
+
+function getHorixontalshift2()
+{
+	var canvas = document.getElementById('canvas_trans2');
+	var ctx = canvas.getContext('2d');
+	var imgData = ctx.getImageData(0,0,canvas.width, canvas.height);
+	var src = cv.matFromImageData(imgData, 24); // 24 for rgba
+		var tmp = new cv.Mat();
+		var res = new cv.Mat();
+		cv.cvtColor(src, tmp, cv.COLOR_RGBA2RGB, 0 )
+		cv.cvtColor(tmp, res, cv.COLOR_RGB2HSV, 0);
+		
+		tmp.delete();
+		src.delete();
+		
+	return(res)
+}
+
+function makeRGB() {
+		var src = cv.matFromImageData(getInput(), 24); // 24 for rgba
+
+		var tmp = new cv.Mat();
+		
+		cv.cvtColor(src, tmp, cv.COLOR_RGBA2RGB, 0 )
+
+		src.delete();
+		return(tmp);
+	}
+
+show_image = function(mat, canvas_id) {
+		var data = mat.data(); 	// output is a Uint8Array that aliases directly into the Emscripten heap
+
+		channels = mat.channels();
+		channelSize = mat.elemSize1();
+
+		var canvas = document.getElementById(canvas_id);
+
+		ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		canvas.width = mat.cols;
+		canvas.height = mat.rows;
+
+		imdata = ctx.createImageData(mat.cols, mat.rows);
+
+		for (var i = 0,j=0; i < data.length; i += channels, j+=4) {
+			imdata.data[j] = data[i];
+			imdata.data[j + 1] = data[i+1%channels];
+			imdata.data[j + 2] = data[i+2%channels];
+			imdata.data[j + 3] = 255;
+		}
+		ctx.putImageData(imdata, 0, 0);
+	}
+	
+</script>
+
+
+
+
+<script  type='text/javascript'>
+
+	function getCV(){
+
+		var zip ;
+		var oReq = new XMLHttpRequest();
+		oReq.open("GET", "/opencvjs/examples/cv.js.gz", "application/x-gzip");
+		oReq.responseType = "arraybuffer";
+
+		oReq.onload = function (oEvent) {
+		  var arrayBuffer = oReq.response; // Note: not oReq.responseText
+		  if (arrayBuffer) {
+				zip = new Uint8Array(arrayBuffer);
+				console.log("decompressing script");
+				var decompressed = Zee.decompress(zip);
+				console.log("script decompressed");
+				var head= document.getElementsByTagName('head')[0];
+				var script= document.createElement('script');
+				script.type= 'text/javascript';
+				var length = decompressed.length ;
+				decoder = new TextDecoder();
+				script.text = decoder.decode(decompressed);
+				head.appendChild(script);
+				console.log("script added");
+		  }
+		};
+		oReq.send(null);
+	}
+	var statusElement = document.getElementById('status');
+	var progressElement = document.getElementById('progress');
+	var spinnerElement = document.getElementById('spinner');
+	var Module = {
+	preRun: [],
+	postRun: [],
+	print: (function() {
+	  var element = document.getElementById('output');
+	  if (element) element.value = ''; // clear browser cache
+	  return function(text) {
+	    text = Array.prototype.slice.call(arguments).join(' ');
+	    // These replacements are necessary if you render to raw HTML
+	    //text = text.replace(/&/g, "&amp;");
+	    //text = text.replace(/</g, "&lt;");
+	    //text = text.replace(/>/g, "&gt;");
+	    //text = text.replace('\n', '<br>', 'g');
+	    console.log(text);
+	    if (element) {
+	      element.value += text + "\n";
+	      element.scrollTop = element.scrollHeight; // focus on bottom
+	    }
+	  };
+	})(),
+	printErr: function(text) {
+	  text = Array.prototype.slice.call(arguments).join(' ');
+	  if (0) { // XXX disabled for safety typeof dump == 'function') {
+	    dump(text + '\n'); // fast, straight to the real console
+	  } else {
+	    console.error(text);
+	  }
+	},
+	canvas: (function() {
+	  var canvas = document.getElementById('resCanvas');
+	  return canvas;
+	})(),
+	setStatus: function(text) {
+	  if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+	  if (text === Module.setStatus.text) return;
+	  var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+	  var now = Date.now();
+	  if (m && now - Date.now() < 30) return; // if this is a progress update, skip it if too soon
+	  if (m) {
+	    text = m[1];
+	    progressElement.value = parseInt(m[2])*100;
+	    progressElement.max = parseInt(m[4])*100;
+	    progressElement.hidden = false;
+	    spinnerElement.hidden = false;
+	  } else {
+	    progressElement.value = null;
+	    progressElement.max = null;
+	    progressElement.hidden = true;
+	    if (!text) spinnerElement.style.display = 'none';
+	  }
+	  statusElement.innerHTML = text;
+	},
+	totalDependencies: 0,
+		monitorRunDependencies: function(left) {
+		  this.totalDependencies = Math.max(this.totalDependencies, left);
+		  Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+		}
+	};
+	Module.setStatus('Downloading...');
+		window.onerror = function(event) {
+		// TODO: do not warn on ok events like simulating an infinite loop or exitStatus
+		Module.setStatus('Exception thrown, see JavaScript console');
+		spinnerElement.style.display = 'none';
+		Module.setStatus = function(text) {
+		  if (text) Module.printErr('[post-exception status] ' + text);
+		};
+	};
+    </script>
+<script>
+function bubbleChart() {
+  const width = 400;
+  const height = 400;
+
+
+  
+  const centre = { x: width/2 , y: height/2 -50 };
+
+  const forceStrength = 0.03;
+
+ 
+  let svg = null;
+  let bubbles = null;
+  let labels = null;
+  let nodes = [];
+
+
+  function charge(d) {return Math.pow(d.radius, 2.0) * 0.01}
+
+ 
+  function createNodes(rawData) {
+    const maxSize = d3.max(rawData, d => +d.Value);
+	 const val = d3.sum(rawData, d=>+d.Value)
+    const radiusScale = d3.scaleSqrt().domain([0, maxSize]).range([0, 80])
+const TTL_Rad = d3.sum(rawData, d => radiusScale(+d.Value)/2);
+   
+    
+
+    const myNodes = rawData.map(d => ({
+      ...d,
+      radius: radiusScale(+d.Value)/2,
+	  groupid: d.mask_val,
+      size: +d.Value,
+	  color:d.R+","+d.G+","+d.B,
+	  id: d.H+" " + d.S +" "+d.V,
+      x: Math.random() * 900,
+      y: Math.random() * 800,
+	  mask_val:d.mask_val,
+	  Per: Math.round(100*d.Value/val,2)
+    }))
+
+   myNodes.sort(function (a, b) { return b.H - a.H; });return myNodes; 
+   
+   }
+
+  let chart = function chart(selector, rawData, ttl, data2) {
+  d3.select("#bar").selectAll("*").remove();
+  	d3.select(selector).selectAll("*").remove();
+    nodes = createNodes(rawData);
+
+    svg = d3.select(selector).append('svg').attr('width', width+60).attr('height', height+6).attr('transform', 'translate(' +0 + ',' + 0 + ')')
+	
+	
+	var svg2 = d3.select("#bar").append("svg")
+    .attr("width", 300 )
+    .attr("height", 30 )
+  .append("g")
+
+
+
+data2.forEach(function(d) {d.Total = +d.Value;});
+  
+ 
+  var xScale = d3.scaleLinear()
+    .range([0, 300]);
+
+  var yScale = d3.scaleBand()
+    .range([0, 30])
+    .padding(0.1);
+
+  xScale.domain([0, d3.sum(data2, function(d) {
+    return d.Total;
+  })]);
+
+  // Create axes.
+
+  var x_axis = svg2.append('g')
+    .attr('class', 'axis')
+    .attr('padding', 1)
+    .attr('transform', 'translate(' +0 + ',' + 0 + ')')
+    
+
+  // Choose which columns to have as keys with slice method.
+
+  var keys = data2.map(function(d) {
+    return d.mask_val;
+  });
+
+  var newData = [{}];
+
+  data2.forEach(function(d) {
+    newData[0][d.mask_val] = d.Total
+  });
+
+  // Create stack of the data with keys.
+
+  var stack = d3.stack()
+    .keys(keys);
+
+  // Create series of the data.
+
+  var series = stack(newData);
+
+
+  // Create color scale with colorbrewer or pass in array of colors.
+
+ 
+
+  // Append rectangles.
+
+  var bars = svg2.selectAll(null)
+    .data(series)
+    .enter()
+    .append('g')
+    .attr('fill', function(d) {
+	
+	if(d.key=="Black"){ return("rgb(67,41,52)")}
+	if(d.key=="White"){ return("rgb(199, 186, 157)")}
+	if(d.key=="Red"){ return("rgb(102, 25, 30)")}
+	if(d.key=="Pinkish Red"){ return("rgb(194, 112, 100)")}
+	 return("rgb(194, 112, 100)")
+    })
+    .selectAll('rect')
+    .data(function(d) {
+      return d;
+    })
+    .enter()
+    .append('rect')
+    .attr('x', function(d, i) {
+      return xScale(d[0]);
+    })
+    .attr('width', function(d, i) {
+      return xScale(d[1]) - xScale(d[0]);
+    })
+    .attr("height", yScale.bandwidth()).on("mouseover",mousebar).on("mouseout", hidebar );
+
+var tooltipBar = d3.select("#bar")
+    .append("div")
+      .style("opacity", 0)
+      .attr("class", "tooltip")
+      .style("background-color", "black")
+	  .style("width", "180px")
+      .style("border-radius", "5px")
+      .style("padding", "5px")
+      .style("color", "white")
+
+function mousebar(d)
+{
+k = d.data
+v = 0
+var content = ""
+
+for(i =0; i<Object.keys(k).length; i++)
+{
+var firstKey = Object.keys(k)[i];
+v = v + k[firstKey]
+
+}
+
+
+for(i =0; i<Object.keys(k).length; i++)
+{
+   content = content + 
+                  '<span class="name">'+Object.keys(k)[i]+' </span><span class="value">' +
+                    Math.round(100*k[Object.keys(k)[i]]/v)+
+                  '%</span><br/>' 
+				  ; 
+				 
+}
+				  
+	 tooltipBar
+      .transition()
+      .duration(200)
+    tooltipBar
+      .style("opacity", 1)
+      .html(content)
+      .style("left", (d3.mouse(this)[0])+ "px")
+      .style("top", (d3.mouse(this)[1]) - 20  + "px")
+	   .style("position", "relative")
+				  
+}
+
+
+function hidebar(d)
+{
+  tooltipBar.style("opacity", 0)
+}
+
+    // bind nodes data to circle elements
+    const elements = svg.selectAll('.bubble').data(nodes, d => d.id)
+      .enter().append('g')
+
+var tooltip = d3.select(selector)
+    .append("div")
+      .style("opacity", 0)
+      .attr("class", "tooltip")
+      .style("background-color", "black")
+	  .style("width", "150px")
+      .style("border-radius", "5px")
+      .style("padding", "5px")
+      .style("color", "white")
+
+    bubbles = elements
+      .append('circle')
+      .classed('bubble', true)
+      .attr('r', d => d.radius)
+      .attr('fill',function(d){return ('RGB('+d.color+')')}).on('mouseover', showDetail).on("mouseout", hideTooltip )
+	 
+	 
+function showDetail(d){
+
+
+    var content = 
+                  '<span class="name">Hue: </span><span class="value">' +
+                   d.H +
+                  '</span><br/>' +
+				  '<span class="name">Saturation: </span><span class="value">' +
+                   d.S +
+                  '</span><br/>' +
+				  '<span class="name">Value: </span><span class="value">' +
+                   d.V +'</span><br/>'
+				  
+	 tooltip
+      .transition()
+      .duration(200)
+    tooltip
+      .style("opacity", 1)
+      .html(content)
+      .style("left", (d3.mouse(this)[0]-150) + "px")
+      .style("top", (d3.mouse(this)[1]-400) + "px")
+	   .style("position", "relative")
+				  
+				  
+}
+
+var moveTooltip = function(d) {
+    tooltip
+      .style("left", (d3.mouse(this)[0]+30) + "px")
+      .style("top", (d3.mouse(this)[1]+30) + "px")
+  }
+  var hideTooltip = function(d) {
+    tooltip.style("opacity", 0)
+  }
+
+    // labels
+    labels = elements
+      .append('text')
+      .attr('dy', '.3em')
+      .style('text-anchor', 'middle')
+      .style('font-size', 10)
+	  .style('fill', 'white')
+      .text(function(d){ if(d.radius < 12){return""}return(d.Per+"%")})
+
+ const simulation = d3.forceSimulation()
+    .force('charge', d3.forceManyBody().strength(charge))
+    // .force('center', d3.forceCenter(centre.x, centre.y))
+    .force('x', d3.forceX().strength(forceStrength).x(centre.x))
+    .force('y', d3.forceY().strength(forceStrength).y(centre.y))
+    .force('collision', d3.forceCollide().radius(d => d.radius + 1));
+
+  // force simulation starts up automatically, which we don't want as there aren't any nodes yet
+ 
+
+
+    // set simulation's nodes to our newly created nodes array
+    // simulation starts running automatically once nodes are set
+    simulation.nodes(nodes)
+      .on('tick', ticked).start();
+	  
+	   
+  }
+
+  // callback function called after every tick of the force simulation
+  // here we do the actual repositioning of the circles based on current x and y value of their bound node data
+  // x and y values are modified by the force simulation
+  function ticked() {
+    bubbles
+      .attr('cx', d => d.x)
+      .attr('cy', d => d.y)
+
+    labels
+      .attr('x', d => d.x)
+      .attr('y', d => d.y)
+  }
+
+  // return chart function from closure
+  return chart;
+}
+
+// new bubble chart instance
+let myBubbleChart = bubbleChart();
+
+</script>	
+
+
+<script>
+
+</script>
+
+</body>
+</html>
+
+
